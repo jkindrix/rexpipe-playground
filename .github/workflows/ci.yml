@@ -1,0 +1,172 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Build the rexpipe-wasm bridge crate and run its tests.
+  #
+  # During Phase 1, the bridge crate depends on rexpipe via a path dependency
+  # (`../../../rexpipe`). CI checks out both repos as siblings so the path
+  # dependency resolves. The rexpipe branch defaults to `wasm-prep` (the
+  # Phase 0 branch containing the core/cli feature split) and can be
+  # overridden via workflow_dispatch inputs or by setting REXPIPE_REF.
+  bridge-check:
+    name: Bridge crate (native + wasm32)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out rexpipe-playground
+        uses: actions/checkout@v4
+        with:
+          path: rexpipe-playground
+
+      - name: Check out rexpipe (wasm-prep branch for Phase 1)
+        uses: actions/checkout@v4
+        with:
+          repository: jkindrix/rexpipe
+          ref: wasm-prep
+          path: rexpipe
+
+      - name: Install Rust stable with wasm32 target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rexpipe-playground/crates/rexpipe-wasm/target
+          key: ${{ runner.os }}-cargo-bridge-${{ hashFiles('rexpipe-playground/crates/rexpipe-wasm/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bridge-
+
+      - name: Verify layout
+        run: |
+          test -f rexpipe/Cargo.toml || (echo "rexpipe not checked out correctly"; exit 1)
+          test -f rexpipe-playground/crates/rexpipe-wasm/Cargo.toml || (echo "bridge crate not found"; exit 1)
+          # The bridge crate uses path = "../../../rexpipe", which from
+          # crates/rexpipe-wasm resolves to ../../rexpipe relative to the
+          # workspace root. GitHub Actions puts us one directory up, so
+          # we need rexpipe at ../rexpipe relative to rexpipe-playground.
+          ls -la
+
+      - name: Native test of bridge crate (unit tests)
+        working-directory: rexpipe-playground/crates/rexpipe-wasm
+        run: cargo test --lib
+
+      - name: Native test of bridge crate (golden file tests)
+        working-directory: rexpipe-playground/crates/rexpipe-wasm
+        run: cargo test --test golden
+
+      - name: Check WASM build
+        working-directory: rexpipe-playground/crates/rexpipe-wasm
+        run: cargo check --target wasm32-unknown-unknown
+
+  # Build the actual WASM artifact with wasm-pack and smoke-test it.
+  wasm-pack-build:
+    name: wasm-pack build + size check
+    runs-on: ubuntu-latest
+    needs: [bridge-check]
+    steps:
+      - name: Check out rexpipe-playground
+        uses: actions/checkout@v4
+        with:
+          path: rexpipe-playground
+
+      - name: Check out rexpipe (wasm-prep branch for Phase 1)
+        uses: actions/checkout@v4
+        with:
+          repository: jkindrix/rexpipe
+          ref: wasm-prep
+          path: rexpipe
+
+      - name: Install Rust stable with wasm32 target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM module
+        working-directory: rexpipe-playground/crates/rexpipe-wasm
+        run: wasm-pack build --target web --out-dir ../../web/public/pkg
+
+      - name: Report bundle size
+        run: |
+          cd rexpipe-playground/web/public/pkg
+          ls -la *.wasm
+          UNCOMPRESSED=$(stat -c '%s' rexpipe_wasm_bg.wasm)
+          GZIPPED=$(gzip -c rexpipe_wasm_bg.wasm | wc -c)
+          echo "### WASM bundle size" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Size | KB |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Uncompressed | $UNCOMPRESSED | $((UNCOMPRESSED / 1024)) KB |" >> $GITHUB_STEP_SUMMARY
+          echo "| gzipped | $GZIPPED | $((GZIPPED / 1024)) KB |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          # Phase 1 load budget: <1 MB compressed
+          if [ "$GZIPPED" -gt 1048576 ]; then
+            echo "ERROR: WASM bundle exceeds 1 MB compressed budget" >&2
+            exit 1
+          fi
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rexpipe-wasm-pkg
+          path: rexpipe-playground/web/public/pkg/
+          retention-days: 7
+
+  # Formatting check for the bridge crate.
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        working-directory: crates/rexpipe-wasm
+        run: cargo fmt --all -- --check
+
+  # Clippy lint on the bridge crate.
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    needs: [bridge-check]
+    steps:
+      - name: Check out rexpipe-playground
+        uses: actions/checkout@v4
+        with:
+          path: rexpipe-playground
+
+      - name: Check out rexpipe (wasm-prep branch for Phase 1)
+        uses: actions/checkout@v4
+        with:
+          repository: jkindrix/rexpipe
+          ref: wasm-prep
+          path: rexpipe
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Run clippy
+        working-directory: rexpipe-playground/crates/rexpipe-wasm
+        run: cargo clippy --all-targets -- -D warnings

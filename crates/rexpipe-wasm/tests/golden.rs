@@ -14,7 +14,7 @@
 //! the rlib side of the bridge crate. The actual WASM module is verified
 //! manually by loading the smoke-test HTML page.
 
-use rexpipe_wasm::{process_pipeline_inner, ProcessOutcome};
+use rexpipe_wasm::{ProcessOutcome, process_pipeline_inner};
 
 const INPUT: &str = "  My understanding of \"done\":
   A web interface where a user makes selections across audit dimensions, and the system generates a tailored LLM prompt that effectively conducts that specific audit against a codebase.
