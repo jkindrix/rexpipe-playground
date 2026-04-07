@@ -1,0 +1,25 @@
+# Rust
+target/
+Cargo.lock.bak
+**/*.rs.bk
+
+# wasm-pack output
+pkg/
+wasm-pack.log
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
