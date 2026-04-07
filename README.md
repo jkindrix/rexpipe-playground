@@ -24,7 +24,7 @@ rexpipe-playground/
 
 ## Building the WASM bridge
 
-The bridge crate depends on rexpipe via a path dependency during local development. By default it points at a sibling `rexpipe/` checkout at `../../rexpipe`, on the `wasm-prep` branch.
+The bridge crate depends on rexpipe via a path dependency during local development. By default it points at a sibling `rexpipe/` checkout at `../../rexpipe` on the `main` branch (which contains the Phase 0 core/cli feature split).
 
 ```bash
 cd crates/rexpipe-wasm

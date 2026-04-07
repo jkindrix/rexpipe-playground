@@ -15,9 +15,9 @@ jobs:
   #
   # During Phase 1, the bridge crate depends on rexpipe via a path dependency
   # (`../../../rexpipe`). CI checks out both repos as siblings so the path
-  # dependency resolves. The rexpipe branch defaults to `wasm-prep` (the
-  # Phase 0 branch containing the core/cli feature split) and can be
-  # overridden via workflow_dispatch inputs or by setting REXPIPE_REF.
+  # dependency resolves. The rexpipe branch used is `main`, which contains
+  # the Phase 0 core/cli feature split merged in PR #11. Switch to a git or
+  # crates.io dependency once a release ships with the `core` feature.
   bridge-check:
     name: Bridge crate (native + wasm32)
     runs-on: ubuntu-latest
@@ -27,11 +27,11 @@ jobs:
         with:
           path: rexpipe-playground
 
-      - name: Check out rexpipe (wasm-prep branch for Phase 1)
+      - name: Check out rexpipe (main — contains Phase 0 core/cli split)
         uses: actions/checkout@v4
         with:
           repository: jkindrix/rexpipe
-          ref: wasm-prep
+          ref: main
           path: rexpipe
 
       - name: Install Rust stable with wasm32 target
@@ -83,11 +83,11 @@ jobs:
         with:
           path: rexpipe-playground
 
-      - name: Check out rexpipe (wasm-prep branch for Phase 1)
+      - name: Check out rexpipe (main — contains Phase 0 core/cli split)
         uses: actions/checkout@v4
         with:
           repository: jkindrix/rexpipe
-          ref: wasm-prep
+          ref: main
           path: rexpipe
 
       - name: Install Rust stable with wasm32 target
@@ -155,11 +155,11 @@ jobs:
         with:
           path: rexpipe-playground
 
-      - name: Check out rexpipe (wasm-prep branch for Phase 1)
+      - name: Check out rexpipe (main — contains Phase 0 core/cli split)
         uses: actions/checkout@v4
         with:
           repository: jkindrix/rexpipe
-          ref: wasm-prep
+          ref: main
           path: rexpipe
 
       - name: Install Rust stable
