@@ -199,6 +199,7 @@
         const runBtn = document.getElementById("run");
         runBtn.disabled = true;
 
+        let wasmLoaded = false;
         const t0 = performance.now();
         try {
             await init();
@@ -206,6 +207,7 @@
             statusEl.textContent = `WASM module loaded in ${loadTime} ms. Ready.`;
             statusEl.className = "status ok";
             runBtn.disabled = false;
+            wasmLoaded = true;
 
             // Verify the other exports work
             console.log("Schema:", get_schema());
@@ -213,7 +215,6 @@
         } catch (e) {
             statusEl.textContent = `Failed to load WASM: ${e.message}`;
             statusEl.className = "status error";
-            return;
         }
 
         function renderOutput(outcome) {
@@ -300,7 +301,7 @@
         });
 
         // Auto-run once on load so the user sees something immediately
-        run();
+        if (wasmLoaded) run();
     </script>
 </body>
 </html>

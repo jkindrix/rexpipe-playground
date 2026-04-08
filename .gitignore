@@ -3,8 +3,10 @@ target/
 Cargo.lock.bak
 **/*.rs.bk
 
-# wasm-pack output
-pkg/
+# wasm-pack intermediate output (we DO commit web/public/pkg/ as a built
+# artifact so that the Svelte frontend and GitHub Pages deploys don't need
+# a Rust toolchain to produce a working build)
+crates/**/pkg/
 wasm-pack.log
 
 # Node
@@ -23,3 +25,8 @@ Thumbs.db
 # Local env
 .env
 .env.local
+
+# Vite + Node
+web/node_modules/
+web/dist/
+web/.vite/

@@ -37,6 +37,19 @@ use wasm_bindgen::prelude::*;
 use rexpipe::pipeline::{PipelineConfig, PipelineStep};
 use rexpipe::processor::{PipelineIntermediateResult, StreamProcessor};
 
+/// Serialize a Rust value into a JsValue using plain JavaScript objects
+/// (not `Map` instances) for all map-like and struct-like data. This is
+/// essential for consumers that use property access (`obj.field`) instead
+/// of `Map::get()`, which is the idiomatic JavaScript pattern.
+///
+/// Without this, `serde_wasm_bindgen::to_value` defaults to emitting `Map`
+/// objects for `HashMap` and some enum representations, which breaks
+/// property access on the JS side.
+fn to_js<T: Serialize + ?Sized>(value: &T) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let serializer = serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+    value.serialize(&serializer)
+}
+
 // ---------------------------------------------------------------------------
 // Panic hook setup
 // ---------------------------------------------------------------------------
@@ -160,7 +173,7 @@ pub struct SchemaResponse {
 #[wasm_bindgen]
 pub fn process_pipeline(request_json: &str) -> JsValue {
     let outcome = process_pipeline_inner(request_json);
-    serde_wasm_bindgen::to_value(&outcome).unwrap_or_else(|e| {
+    to_js(&outcome).unwrap_or_else(|e| {
         // Fallback: if even the serialization of the outcome fails (very
         // unlikely), return a plain string so the JS side at least sees
         // something useful.
@@ -226,7 +239,7 @@ pub fn process_pipeline_inner(request_json: &str) -> ProcessOutcome {
 #[wasm_bindgen]
 pub fn validate_pattern(pattern: &str, flags_json: &str) -> JsValue {
     let response = validate_pattern_inner(pattern, flags_json);
-    serde_wasm_bindgen::to_value(&response).unwrap_or(JsValue::NULL)
+    to_js(&response).unwrap_or(JsValue::NULL)
 }
 
 fn validate_pattern_inner(pattern: &str, flags_json: &str) -> ValidatePatternResponse {
@@ -298,7 +311,7 @@ pub fn list_builtins() -> JsValue {
         })
         .collect();
 
-    serde_wasm_bindgen::to_value(&entries).unwrap_or(JsValue::NULL)
+    to_js(&entries).unwrap_or(JsValue::NULL)
 }
 
 /// Return the schema of valid enum values for UI dropdowns.
@@ -373,7 +386,7 @@ pub fn get_schema() -> JsValue {
         ],
     };
 
-    serde_wasm_bindgen::to_value(&schema).unwrap_or(JsValue::NULL)
+    to_js(&schema).unwrap_or(JsValue::NULL)
 }
 
 // ---------------------------------------------------------------------------

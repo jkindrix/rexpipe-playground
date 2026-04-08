@@ -1,0 +1,24 @@
+{
+  "name": "rexpipe-wasm",
+  "type": "module",
+  "collaborators": [
+    "Justin Kindrix <jkindrix@gmail.com>"
+  ],
+  "description": "WASM bridge crate exposing rexpipe to browser-based playgrounds",
+  "version": "0.1.0",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jkindrix/rexpipe-playground"
+  },
+  "files": [
+    "rexpipe_wasm_bg.wasm",
+    "rexpipe_wasm.js",
+    "rexpipe_wasm.d.ts"
+  ],
+  "main": "rexpipe_wasm.js",
+  "types": "rexpipe_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
