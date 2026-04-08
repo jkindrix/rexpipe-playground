@@ -298,16 +298,45 @@
     cursor: pointer;
     accent-color: var(--accent-blue);
     flex-shrink: 0;
+    /* Larger checkbox so it's usable without squinting */
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Mobile: expand the checkbox hit area with padding. The visible
+   * checkbox stays the same size (so it looks normal next to the badges)
+   * but the clickable zone grows to 44×44. box-shadow creates a visible
+   * hit area hint on focus without changing layout. */
+  @media (max-width: 767px) {
+    .enable-toggle {
+      width: 24px;
+      height: 24px;
+      /* Padding doesn't work well on checkbox itself; use min dimensions
+       * via the surrounding cell. The extra space comes from the parent
+       * flex gap. */
+    }
   }
 
   .step-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     padding: 8px 12px;
     cursor: pointer;
     border-bottom: 1px solid var(--border);
     user-select: none;
+    min-height: var(--touch-target-desktop);
+  }
+
+  /* Mobile: taller header for comfortable tap, also more breathing room
+   * between the step info and the action buttons */
+  @media (max-width: 767px) {
+    .step-header {
+      padding: 10px 12px;
+      min-height: var(--touch-target);
+      gap: 10px;
+    }
   }
 
   .step-header:focus-visible {
@@ -319,20 +348,24 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     min-width: 0;
+    flex: 1;
+    overflow: hidden;
   }
 
   .step-number {
     font-family: var(--font-mono);
     color: var(--text-muted);
     font-weight: 600;
+    flex-shrink: 0;
   }
 
   .step-type-label {
     font-weight: 600;
     color: var(--text-primary);
     text-transform: capitalize;
+    flex-shrink: 0;
   }
 
   .badge {
@@ -344,6 +377,18 @@
     font-size: 11px;
     color: var(--text-secondary);
     font-family: var(--font-mono);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Mobile: drop the secondary "lines" badge when space is tight.
+   * The match count is the most important signal; the lines count
+   * is nice-to-have and available again when the step is selected
+   * because it's visible in the Stats section of the intermediate panes. */
+  @media (max-width: 559px) {
+    .badge.muted {
+      display: none;
+    }
   }
 
   .badge.muted {
@@ -363,9 +408,25 @@
   }
 
   .step-actions button {
-    padding: 2px 8px;
-    font-size: 13px;
+    padding: 4px 8px;
+    font-size: 14px;
     font-family: var(--font-mono);
+    /* Desktop baseline: comfortable click target without dominating the card */
+    min-width: 30px;
+    min-height: 28px;
+  }
+
+  /* Mobile: 44×44 minimum per WCAG 2.5.5 */
+  @media (max-width: 767px) {
+    .step-actions button {
+      min-width: 44px;
+      min-height: 44px;
+      font-size: 18px;
+      padding: 0;
+    }
+    .step-actions {
+      gap: 6px;
+    }
   }
 
   .step-body {

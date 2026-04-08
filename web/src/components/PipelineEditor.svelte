@@ -52,6 +52,19 @@
     overflow: hidden;
   }
 
+  /* Mobile: let the pipeline editor grow naturally with content.
+   * The parent app-layout flows as a column below 768px, so the editor
+   * no longer competes with the top panes for vertical space — it can
+   * be as tall as its step list needs. The internal step-list scroll
+   * is disabled and the whole page scrolls instead, which matches
+   * native mobile expectations. */
+  @media (max-width: 767px) {
+    .pipeline-editor {
+      overflow: visible;
+      min-height: 240px;
+    }
+  }
+
   .editor-header {
     display: flex;
     align-items: center;
@@ -91,6 +104,17 @@
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+  }
+
+  /* Mobile: disable internal scroll — the whole page scrolls instead.
+   * This matches native mobile patterns (one continuous scroll zone)
+   * and means users can see every step in the pipeline without
+   * juggling two scroll containers. */
+  @media (max-width: 767px) {
+    .step-list {
+      overflow-y: visible;
+      flex: none;
+    }
   }
 
   .empty-state {

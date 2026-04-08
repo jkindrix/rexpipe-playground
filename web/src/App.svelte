@@ -144,11 +144,21 @@
 </div>
 
 <style>
+  /* Desktop: grid layout that fills the viewport. The pipeline editor
+   * gets slightly more vertical weight than the text panes (3fr vs 2fr)
+   * because users spend most of their time in the editor — seeing step
+   * type/mode/pattern/replacement fields matters more than a tall text
+   * preview. minmax() floors prevent the regions from collapsing when
+   * warnings appear. */
   .app-layout {
     display: grid;
-    grid-template-rows: auto 1fr 1fr auto;
+    grid-template-rows: auto minmax(200px, 2fr) minmax(280px, 3fr) auto;
     gap: 8px;
     padding: 8px;
+    padding: max(8px, env(safe-area-inset-top))
+             max(8px, env(safe-area-inset-right))
+             max(8px, env(safe-area-inset-bottom))
+             max(8px, env(safe-area-inset-left));
     height: 100vh;
     background: var(--bg-primary);
   }
@@ -186,5 +196,47 @@
 
   .warning-item {
     line-height: 1.4;
+  }
+
+  /* Mobile: stack everything vertically and let the page scroll.
+   * At widths below 768px, trying to split the horizontal space across
+   * two panes leaves each with ~140px of usable content — too narrow
+   * to be legible. Stacking gives each pane the full width. */
+  @media (max-width: 767px) {
+    .app-layout {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      min-height: 100vh;
+      padding: max(8px, env(safe-area-inset-top))
+               max(8px, env(safe-area-inset-right))
+               max(8px, env(safe-area-inset-bottom))
+               max(8px, env(safe-area-inset-left));
+    }
+
+    .top-panes {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Each text pane gets a minimum height so it's usable but can grow
+     * when users click through the pipeline and the content is larger.
+     * 42vh × 2 panes leaves room for the compact header and some of the
+     * pipeline editor in the initial viewport. */
+    :global(.top-panes > .pane) {
+      min-height: 42vh;
+      max-height: 60vh;
+    }
+  }
+
+  /* Very small phones (iPhone SE, older Androids): smaller min-heights
+   * because 42vh × 2 = 84vh leaves almost no room for the pipeline editor
+   * header without scrolling. */
+  @media (max-width: 400px) and (max-height: 700px) {
+    :global(.top-panes > .pane) {
+      min-height: 32vh;
+      max-height: 50vh;
+    }
   }
 </style>

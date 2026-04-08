@@ -156,4 +156,14 @@
   .editor-host :global(.cm-editor) {
     height: 100%;
   }
+
+  /* Mobile: ensure the editor always has a tappable height.
+   * The parent pane has min-height: 42vh from App.svelte, but we also
+   * want the editor host (which contains the CodeMirror view) to
+   * stretch within that space. */
+  @media (max-width: 767px) {
+    .editor-host {
+      min-height: 180px;
+    }
+  }
 </style>

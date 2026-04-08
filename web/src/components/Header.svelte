@@ -32,27 +32,42 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     padding: 10px 16px;
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 4px;
+    /* On mobile the header is sticky so the status indicator stays
+     * visible while the user scrolls through long pipelines. On desktop
+     * this has no effect because the layout doesn't scroll. */
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   .title-group {
     display: flex;
     align-items: baseline;
     gap: 12px;
+    min-width: 0;
+    flex: 1;
   }
 
   h1 {
     font-size: 18px;
     font-weight: 600;
     color: var(--text-primary);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .subtitle {
     font-size: 12px;
     color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
 
   .status {
@@ -61,6 +76,11 @@
     gap: 8px;
     font-size: 13px;
     color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .status-text {
+    white-space: nowrap;
   }
 
   .dot {
@@ -68,6 +88,28 @@
     height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
+  }
+
+  /* Mobile: compact header. Subtitle hides below 560px to make room
+   * for the title + status on one line. Padding shrinks to recover
+   * vertical space for the actual app. */
+  @media (max-width: 767px) {
+    header {
+      padding: 10px 12px;
+    }
+  }
+
+  @media (max-width: 559px) {
+    .subtitle {
+      display: none;
+    }
+    h1 {
+      font-size: 16px;
+    }
+    .status-text {
+      /* At really narrow widths, the status dot is enough — label drops */
+      display: none;
+    }
   }
 
   .dot.loading {

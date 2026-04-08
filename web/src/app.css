@@ -29,6 +29,12 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "SF Mono", Monaco, "Cascadia Code", "Fira Code", Consolas, monospace;
 
+  /* Minimum touch target size per WCAG 2.5.5 and Apple HIG: 44×44 px.
+   * Applied to interactive elements on mobile viewports.
+   * On desktop we allow smaller targets since pointer precision is higher. */
+  --touch-target: 44px;
+  --touch-target-desktop: 32px;
+
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
@@ -53,8 +59,28 @@ body,
   height: 100%;
 }
 
+/* Desktop default: lock the viewport, no page scroll — the three-pane
+ * layout is designed to fit in 100vh with internal scrolling in the
+ * pipeline editor. On mobile this is overridden below. */
 body {
   overflow: hidden;
+}
+
+/* Mobile: allow the page to scroll. At narrow widths, trying to fit a
+ * three-region grid into 100vh makes every region unusably small.
+ * Instead let content flow and grow the page vertically. */
+@media (max-width: 767px) {
+  body {
+    overflow: auto;
+    /* iOS Safari: enable momentum scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+  html,
+  body,
+  #app {
+    height: auto;
+    min-height: 100%;
+  }
 }
 
 h1,
@@ -76,6 +102,19 @@ button {
   padding: 4px 10px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
+  /* Ensure buttons have usable touch targets on desktop.
+   * Mobile overrides below make them bigger. */
+  min-height: var(--touch-target-desktop);
+}
+
+/* Mobile: enforce WCAG 2.5.5 minimum touch target on all interactive
+ * elements. 44×44 px is the minimum comfortable tap area on phones. */
+@media (max-width: 767px) {
+  button {
+    min-height: var(--touch-target);
+    min-width: var(--touch-target);
+    padding: 8px 14px;
+  }
 }
 
 button:hover:not(:disabled) {
@@ -113,6 +152,21 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 4px 8px;
+  min-height: var(--touch-target-desktop);
+}
+
+/* Mobile: native selects and inputs also need 44px height.
+ * The 16px font size is a Safari-specific requirement — smaller sizes
+ * trigger the iOS "zoom into input" behavior when focused, which
+ * disorients users in a full-screen app like this one. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    min-height: var(--touch-target);
+    font-size: 16px;
+    padding: 10px 12px;
+  }
 }
 
 input:focus,
