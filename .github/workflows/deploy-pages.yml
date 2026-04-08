@@ -17,6 +17,21 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  # Opt in to GitHub's Node 24 runtime for JavaScript actions. All our
+  # direct action references use Node 24-compatible major versions, but
+  # `actions/upload-pages-artifact@v4` transitively pins an older
+  # `actions/upload-artifact` SHA (v4.6.2) that still uses Node 20.
+  # We can't control that pin from outside the action.
+  #
+  # This flag tells the runner to run all JavaScript actions under Node 24
+  # regardless of their declared runtime. It's GitHub's official escape
+  # hatch for transitive Node 20 dependencies during the 2026 migration
+  # window (forced default on 2026-06-02; Node 20 removed 2026-09-16).
+  # Can be removed once upload-pages-artifact publishes a new tag that
+  # bumps its internal upload-artifact pin.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build frontend and WASM artifact
