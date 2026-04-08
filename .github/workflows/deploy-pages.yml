@@ -23,12 +23,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out rexpipe-playground
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: rexpipe-playground
 
       - name: Check out rexpipe (main branch — contains core feature)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: jkindrix/rexpipe
           ref: main
@@ -43,12 +43,12 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -59,7 +59,7 @@ jobs:
             ${{ runner.os }}-cargo-pages-
 
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('rexpipe-playground/web/package-lock.json') }}
@@ -98,10 +98,10 @@ jobs:
           done
 
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: rexpipe-playground/web/dist
 
@@ -115,4 +115,4 @@ jobs:
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

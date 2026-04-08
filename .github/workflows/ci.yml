@@ -23,12 +23,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out rexpipe-playground
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: rexpipe-playground
 
       - name: Check out rexpipe (main — contains Phase 0 core/cli split)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: jkindrix/rexpipe
           ref: main
@@ -40,7 +40,7 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -79,12 +79,12 @@ jobs:
     needs: [bridge-check]
     steps:
       - name: Check out rexpipe-playground
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: rexpipe-playground
 
       - name: Check out rexpipe (main — contains Phase 0 core/cli split)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: jkindrix/rexpipe
           ref: main
@@ -122,7 +122,7 @@ jobs:
           fi
 
       - name: Upload WASM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rexpipe-wasm-pkg
           path: rexpipe-playground/web/public/pkg/
@@ -133,7 +133,7 @@ jobs:
     name: Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -151,12 +151,12 @@ jobs:
     needs: [bridge-check]
     steps:
       - name: Check out rexpipe-playground
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: rexpipe-playground
 
       - name: Check out rexpipe (main — contains Phase 0 core/cli split)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: jkindrix/rexpipe
           ref: main
