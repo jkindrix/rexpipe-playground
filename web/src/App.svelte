@@ -6,6 +6,7 @@
     state,
     leftPaneText,
     rightPaneText,
+    rightPaneHighlights,
     leftPaneLabel,
     rightPaneLabel,
   } from './lib/pipeline-state.svelte';
@@ -15,6 +16,16 @@
   // Wire up WASM lifecycle callbacks once, on component mount.
   bridge.onReady = () => {
     state.wasmReady = true;
+    // Fetch the schema for UI dropdowns as soon as the worker is ready.
+    // This is a one-shot call that happens exactly once per session.
+    bridge
+      .getSchema()
+      .then((schema) => {
+        state.schema = schema;
+      })
+      .catch((e) => {
+        console.error('[rexpipe-playground] Failed to fetch schema:', e);
+      });
   };
   bridge.onLoadError = (message) => {
     state.wasmError = message;
@@ -27,6 +38,12 @@
     state.isProcessing = false;
     state.result = result;
   };
+
+  // Warnings from the current result (deferred features, etc.)
+  const warnings = $derived.by<string[]>(() => {
+    if (state.result?.status === 'ok') return state.result.warnings;
+    return [];
+  });
 
   // Seed with a demo pipeline so first-time visitors see the killer feature
   // immediately. This is the motivating "unwrap soft-wrapped lines" pipeline.
@@ -107,17 +124,29 @@
     <TextPane
       label={rightPaneLabel()}
       value={rightPaneText()}
+      highlights={rightPaneHighlights()}
       readonly
     />
   </section>
 
   <PipelineEditor />
+
+  {#if warnings.length > 0}
+    <aside class="warnings" aria-label="Pipeline warnings">
+      <span class="warning-icon" aria-hidden="true">⚠</span>
+      <div class="warning-list">
+        {#each warnings as warning (warning)}
+          <div class="warning-item">{warning}</div>
+        {/each}
+      </div>
+    </aside>
+  {/if}
 </div>
 
 <style>
   .app-layout {
     display: grid;
-    grid-template-rows: auto 1fr 1fr;
+    grid-template-rows: auto 1fr 1fr auto;
     gap: 8px;
     padding: 8px;
     height: 100vh;
@@ -129,5 +158,33 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     min-height: 0;
+  }
+
+  .warnings {
+    display: flex;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--warning-text);
+  }
+
+  .warning-icon {
+    font-size: 14px;
+    line-height: 1.4;
+    flex-shrink: 0;
+  }
+
+  .warning-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .warning-item {
+    line-height: 1.4;
   }
 </style>

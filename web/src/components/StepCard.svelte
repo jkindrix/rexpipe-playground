@@ -4,8 +4,10 @@
     removeStep,
     moveStep,
     selectStep,
+    toggleStepEnabled,
     state,
   } from '../lib/pipeline-state.svelte';
+  import PatternField from './PatternField.svelte';
 
   interface Props {
     step: StepConfig;
@@ -19,6 +21,31 @@
   const isSelected = $derived(state.selectedStepIndex === index);
   const matches = $derived(result?.matches ?? 0);
   const hasError = $derived(result?.error != null);
+  const isDisabled = $derived(step.enabled === false);
+
+  // Schema-driven dropdown options (fallback to hardcoded defaults while
+  // the schema is loading)
+  const stepTypes = $derived(
+    state.schema?.step_types.filter((t) => t !== 'block') ?? [
+      'substitute', 'filter', 'extract', 'transform', 'validate',
+    ],
+  );
+  const processingModes = $derived(
+    state.schema?.processing_modes ?? ['line', 'slurp', 'paragraph'],
+  );
+  const filterActions = $derived(
+    state.schema?.filter_actions ?? [
+      'keep_line', 'drop_line', 'keep_match', 'drop_match', 'deduplicate_by_prefix',
+    ],
+  );
+  const transformActions = $derived(
+    state.schema?.transform_actions ?? [
+      'uppercase', 'lowercase', 'trim', 'title_case',
+    ],
+  );
+  const extractFormats = $derived(
+    state.schema?.extract_output_formats ?? ['text', 'json', 'jsonl', 'csv'],
+  );
 
   function onTypeChange(e: Event) {
     const target = e.target as HTMLSelectElement;
@@ -35,16 +62,29 @@
     step.mode = value === 'line' ? undefined : (value as StepConfig['mode']);
   }
 
-  function onPatternChange(e: Event) {
-    step.pattern = (e.target as HTMLInputElement).value;
+  function onPatternChange(value: string) {
+    step.pattern = value;
   }
 
-  function onReplacementChange(e: Event) {
-    step.replacement = (e.target as HTMLInputElement).value;
+  function onReplacementChange(value: string) {
+    step.replacement = value;
   }
 
   function onActionChange(e: Event) {
     step.action = (e.target as HTMLSelectElement).value as StepConfig['action'];
+  }
+
+  function onTransformActionChange(e: Event) {
+    step.transform_action = (e.target as HTMLSelectElement).value as StepConfig['transform_action'];
+  }
+
+  function onOutputFormatChange(e: Event) {
+    step.output_format = (e.target as HTMLSelectElement).value as StepConfig['output_format'];
+  }
+
+  function onToggleEnabled(e: Event) {
+    e.stopPropagation();
+    toggleStepEnabled(index);
   }
 
   function onHeaderClick() {
@@ -78,7 +118,7 @@
   }
 </script>
 
-<div class="step-card" class:selected={isSelected} class:error={hasError}>
+<div class="step-card" class:selected={isSelected} class:error={hasError} class:disabled={isDisabled}>
   <!-- Header (clickable to select for inspection) -->
   <div
     class="step-header"
@@ -90,9 +130,20 @@
     aria-label="Select step {index + 1} for inspection"
   >
     <div class="step-info">
+      <input
+        type="checkbox"
+        class="enable-toggle"
+        checked={!isDisabled}
+        onchange={onToggleEnabled}
+        onclick={(e) => e.stopPropagation()}
+        aria-label={isDisabled ? 'Enable step' : 'Disable step'}
+        title={isDisabled ? 'Enable step' : 'Disable step'}
+      />
       <span class="step-number">#{index + 1}</span>
       <span class="step-type-label">{step.type}</span>
-      {#if result}
+      {#if isDisabled}
+        <span class="badge muted">disabled</span>
+      {:else if result}
         {#if hasError}
           <span class="badge error-badge">error</span>
         {:else}
@@ -132,58 +183,71 @@
       <label>
         <span class="label-text">Type</span>
         <select value={step.type} onchange={onTypeChange}>
-          <option value="substitute">substitute</option>
-          <option value="filter">filter</option>
-          <option value="extract">extract</option>
-          <option value="transform">transform</option>
-          <option value="validate">validate</option>
+          {#each stepTypes as t (t)}
+            <option value={t}>{t}</option>
+          {/each}
         </select>
       </label>
       <label>
         <span class="label-text">Mode</span>
         <select value={step.mode ?? 'line'} onchange={onModeChange}>
-          <option value="line">line</option>
-          <option value="slurp">slurp</option>
-          <option value="paragraph">paragraph</option>
+          {#each processingModes as m (m)}
+            <option value={m}>{m}</option>
+          {/each}
         </select>
       </label>
     </div>
 
-    <label class="field-full">
+    <div class="field-full">
       <span class="label-text">Pattern</span>
-      <input
-        type="text"
+      <PatternField
         value={step.pattern}
-        oninput={onPatternChange}
         placeholder="regex pattern"
-        spellcheck="false"
-        autocomplete="off"
+        onchange={onPatternChange}
       />
-    </label>
+    </div>
 
     {#if step.type === 'substitute'}
-      <label class="field-full">
+      <div class="field-full">
         <span class="label-text">Replacement</span>
-        <input
-          type="text"
+        <PatternField
           value={step.replacement ?? ''}
-          oninput={onReplacementChange}
-          placeholder="replacement string ($1, $2, ...)"
-          spellcheck="false"
-          autocomplete="off"
+          placeholder="replacement string ($1, $2, …)"
+          onchange={onReplacementChange}
+          validate={false}
         />
-      </label>
+      </div>
     {/if}
 
     {#if step.type === 'filter'}
       <label class="field-full">
         <span class="label-text">Action</span>
         <select value={step.action ?? 'keep_line'} onchange={onActionChange}>
-          <option value="keep_line">keep_line</option>
-          <option value="drop_line">drop_line</option>
-          <option value="keep_match">keep_match</option>
-          <option value="drop_match">drop_match</option>
-          <option value="deduplicate_by_prefix">deduplicate_by_prefix</option>
+          {#each filterActions as a (a)}
+            <option value={a}>{a}</option>
+          {/each}
+        </select>
+      </label>
+    {/if}
+
+    {#if step.type === 'transform'}
+      <label class="field-full">
+        <span class="label-text">Transform</span>
+        <select value={step.transform_action ?? 'uppercase'} onchange={onTransformActionChange}>
+          {#each transformActions as a (a)}
+            <option value={a}>{a}</option>
+          {/each}
+        </select>
+      </label>
+    {/if}
+
+    {#if step.type === 'extract'}
+      <label class="field-full">
+        <span class="label-text">Output Format</span>
+        <select value={step.output_format ?? 'text'} onchange={onOutputFormatChange}>
+          {#each extractFormats as f (f)}
+            <option value={f}>{f}</option>
+          {/each}
         </select>
       </label>
     {/if}
@@ -219,6 +283,21 @@
 
   .step-card.error {
     border-left: 3px solid var(--error);
+  }
+
+  .step-card.disabled {
+    opacity: 0.55;
+  }
+
+  .step-card.disabled .step-body {
+    pointer-events: none;
+  }
+
+  .enable-toggle {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--accent-blue);
+    flex-shrink: 0;
   }
 
   .step-header {

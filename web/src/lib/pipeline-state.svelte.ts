@@ -8,7 +8,7 @@
 // the most recent processing result, which step the user has selected
 // for intermediate inspection, and WASM lifecycle status.
 
-import type { ProcessOutcome, StepConfig, MatchPosition } from './types.js';
+import type { ProcessOutcome, StepConfig, MatchPosition, SchemaResponse } from './types';
 
 // ---------------------------------------------------------------------------
 // Mutable state
@@ -33,6 +33,9 @@ export const state = $state<{
   wasmReady: boolean;
   /** Populated if WASM failed to load */
   wasmError: string | null;
+  /** Enum values fetched from get_schema() at startup — used to populate
+   * UI dropdowns. Null until the schema is fetched. */
+  schema: SchemaResponse | null;
 }>({
   input: '',
   steps: [],
@@ -41,6 +44,7 @@ export const state = $state<{
   isProcessing: false,
   wasmReady: false,
   wasmError: null,
+  schema: null,
 });
 
 // ---------------------------------------------------------------------------
@@ -177,4 +181,15 @@ export function moveStep(index: number, delta: -1 | 1): void {
  */
 export function selectStep(index: number | null): void {
   state.selectedStepIndex = index;
+}
+
+/**
+ * Toggle whether a step is enabled. Disabled steps are filtered out of
+ * the pipeline before processing but kept in the UI for easy re-enabling.
+ */
+export function toggleStepEnabled(index: number): void {
+  const step = state.steps[index];
+  if (!step) return;
+  // enabled defaults to true when undefined; toggle through undefined → false → true
+  step.enabled = step.enabled === false ? true : false;
 }
