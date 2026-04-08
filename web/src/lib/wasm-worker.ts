@@ -59,7 +59,14 @@ function post(message: WorkerResponse): void {
 // The promise is awaited by every incoming request so that messages arriving
 // before the module is ready queue up naturally.
 async function loadWasm(): Promise<WasmModule> {
-  // Dynamic import from the static /pkg/ path. Using `@vite-ignore` prevents
+  // Compute the pkg/ base URL from Vite's BASE_URL env var. In dev this is
+  // '/', in production (GitHub Pages) this is '/rexpipe-playground/'. The
+  // same worker code works in both environments without hardcoding.
+  const baseUrl: string = import.meta.env.BASE_URL ?? '/';
+  const pkgPath = `${baseUrl}pkg/rexpipe_wasm.js`;
+  const wasmPath = `${baseUrl}pkg/rexpipe_wasm_bg.wasm`;
+
+  // Dynamic import from the static pkg/ path. Using `@vite-ignore` prevents
   // Vite from trying to statically analyze and rewrite this import — the
   // file lives in public/ and is not part of the module graph.
   //
@@ -67,13 +74,12 @@ async function loadWasm(): Promise<WasmModule> {
   // analyzer, and the intermediate `string` variable prevents TypeScript from
   // trying to resolve the path at compile time. This is intentional: the WASM
   // glue file is a runtime static asset, not a build-time module.
-  const pkgPath = '/pkg/rexpipe_wasm.js';
   const module = (await import(/* @vite-ignore */ pkgPath)) as WasmModule;
 
   // Pass an explicit URL to init: inside a worker, import.meta.url resolves
   // to the worker bundle location, so the default init behavior (computing
   // the .wasm URL relative to import.meta.url) wouldn't find the file.
-  await module.default('/pkg/rexpipe_wasm_bg.wasm');
+  await module.default(wasmPath);
 
   return module;
 }

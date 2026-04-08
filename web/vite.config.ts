@@ -4,13 +4,19 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 // rexpipe-playground Vite config
 //
 // The pre-built WASM module lives in public/pkg/ and is served as a static
-// asset. Vite copies public/ to dist/ verbatim, so `/pkg/rexpipe_wasm.js`
-// works in both dev and production.
+// asset. Vite copies public/ to dist/ verbatim, so the worker can load
+// from `${BASE_URL}pkg/rexpipe_wasm.js` in both dev and production.
 //
 // The Web Worker is loaded via `new Worker(new URL('./wasm-worker.ts',
 // import.meta.url), { type: 'module' })` in wasm-bridge.ts. Vite bundles
 // the worker as a separate ES module.
-export default defineConfig({
+//
+// Base path: in production (GitHub Pages deployment at
+// https://jkindrix.github.io/rexpipe-playground/), everything needs to
+// be served from the /rexpipe-playground/ subpath. In dev, it's served
+// from `/`. The `command === 'build'` check switches between them.
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/rexpipe-playground/' : '/',
   plugins: [svelte()],
   build: {
     target: 'esnext',
@@ -25,4 +31,4 @@ export default defineConfig({
   optimizeDeps: {
     entries: ['index.html'],
   },
-});
+}));

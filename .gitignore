@@ -26,6 +26,9 @@ Thumbs.db
 .env
 .env.local
 
+# Local MCP server config (user-specific browser automation)
+.mcp.json
+
 # Vite + Node
 web/node_modules/
 web/dist/

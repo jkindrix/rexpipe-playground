@@ -1,0 +1,118 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Required permissions for the deploy-pages action
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; cancel any queued runs so the latest
+# main commit always wins. `cancel-in-progress: false` would queue them.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build frontend and WASM artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out rexpipe-playground
+        uses: actions/checkout@v4
+        with:
+          path: rexpipe-playground
+
+      - name: Check out rexpipe (main branch — contains core feature)
+        uses: actions/checkout@v4
+        with:
+          repository: jkindrix/rexpipe
+          ref: main
+          path: rexpipe
+
+      - name: Install Rust stable with wasm32 target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rexpipe-playground/crates/rexpipe-wasm/target
+          key: ${{ runner.os }}-cargo-pages-${{ hashFiles('rexpipe-playground/crates/rexpipe-wasm/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-pages-
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('rexpipe-playground/web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Build WASM module
+        working-directory: rexpipe-playground/crates/rexpipe-wasm
+        run: wasm-pack build --target web --out-dir ../../web/public/pkg
+
+      - name: Install npm dependencies
+        working-directory: rexpipe-playground/web
+        run: npm ci
+
+      - name: Type check
+        working-directory: rexpipe-playground/web
+        run: npm run check
+
+      - name: Build production bundle
+        working-directory: rexpipe-playground/web
+        run: npm run build
+
+      - name: Report bundle size
+        run: |
+          cd rexpipe-playground/web/dist
+          echo "## Deployed bundle size" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Size | gzipped |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|---------|" >> $GITHUB_STEP_SUMMARY
+          for f in pkg/*.wasm assets/index-*.js assets/index-*.css assets/wasm-worker-*.js index.html; do
+            if [ -f "$f" ]; then
+              RAW=$(stat -c '%s' "$f")
+              GZIP=$(gzip -c "$f" | wc -c)
+              echo "| $f | $((RAW / 1024)) KB | $((GZIP / 1024)) KB |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: rexpipe-playground/web/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
