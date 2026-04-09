@@ -22,6 +22,12 @@
   const matches = $derived(result?.matches ?? 0);
   const hasError = $derived(result?.error != null);
   const isDisabled = $derived(step.enabled === false);
+  // `block` steps round-trip through the playground (imported from
+  // TOML, exported back out intact) but aren't editable in the UI —
+  // the action shape is complex enough that a dedicated editor is
+  // deferred. Show an explicit "unsupported" indicator instead of
+  // rendering broken default fields.
+  const isBlockStep = $derived(step.type === 'block');
 
   // Schema-driven dropdown options (fallback to hardcoded defaults while
   // the schema is loading)
@@ -141,7 +147,9 @@
       />
       <span class="step-number">#{index + 1}</span>
       <span class="step-type-label">{step.type}</span>
-      {#if isDisabled}
+      {#if isBlockStep}
+        <span class="badge error-badge" title="Block steps aren't editable in the playground yet — they still process correctly and round-trip through import/export.">unsupported</span>
+      {:else if isDisabled}
         <span class="badge muted">disabled</span>
       {:else if result}
         {#if hasError}
@@ -179,6 +187,15 @@
 
   <!-- Body (editable fields) -->
   <div class="step-body">
+    {#if isBlockStep}
+      <div class="step-error">
+        <strong>Block step not editable.</strong>
+        The playground preserves imported block steps for round-trip
+        export but doesn't yet provide an editor for them. To modify
+        this step, edit the TOML config directly and re-import, or
+        delete the step and rebuild using supported step types.
+      </div>
+    {:else}
     <div class="field-row">
       <label>
         <span class="label-text">Type</span>
@@ -259,6 +276,7 @@
           <div class="hint">Hint: {result.error.hint}</div>
         {/if}
       </div>
+    {/if}
     {/if}
   </div>
 </div>

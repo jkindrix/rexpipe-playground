@@ -45,6 +45,28 @@
     return [];
   });
 
+  // Hard upper bound on input size. Processing larger-than-1MB inputs
+  // in the browser is a recipe for pegged CPU, unresponsive tabs, and
+  // angry users — the CLI is the right tool for that job. This number
+  // matches DESIGN.md §"Performance Strategy".
+  const INPUT_SIZE_LIMIT_BYTES = 1_048_576;
+
+  // TextEncoder measures the actual UTF-8 byte length, not the
+  // code-unit length of the string, which matters for multibyte content.
+  const inputByteLength = $derived.by<number>(() =>
+    new TextEncoder().encode(state.input).length,
+  );
+
+  const inputTooLarge = $derived.by<boolean>(
+    () => inputByteLength > INPUT_SIZE_LIMIT_BYTES,
+  );
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+
   // Seed with a demo pipeline so first-time visitors see the killer feature
   // immediately. This is the motivating "unwrap soft-wrapped lines" pipeline.
   if (state.steps.length === 0) {
@@ -76,6 +98,23 @@
   // inside this effect registers them as dependencies.
   $effect(() => {
     if (!state.wasmReady) return;
+
+    // Enforce the browser-side size limit. For inputs over 1 MB we
+    // bypass the worker entirely and surface a result-shaped error so
+    // the user sees the oversize banner above the input pane and the
+    // output pane stays empty. Clearing state.result would fight the
+    // reactive $derived logic that drives the panes.
+    if (inputTooLarge) {
+      state.result = {
+        status: 'error',
+        kind: 'InputTooLarge',
+        message: `Input is ${formatBytes(inputByteLength)}, which exceeds the ${formatBytes(
+          INPUT_SIZE_LIMIT_BYTES,
+        )} browser limit. For larger inputs, use the rexpipe CLI.`,
+        hint: 'Export your pipeline as TOML and run it with `rexpipe --config pipeline.toml < input.txt`.',
+      };
+      return;
+    }
 
     // Only include enabled steps that have a pattern (avoid noise errors
     // from half-typed steps with empty patterns).
@@ -112,6 +151,22 @@
 
 <div class="app-layout">
   <Header />
+
+  {#if inputTooLarge}
+    <aside class="size-limit" aria-label="Input size limit exceeded" role="alert">
+      <span class="warning-icon" aria-hidden="true">⚠</span>
+      <div class="warning-list">
+        <div class="warning-item">
+          <strong>Input too large for the browser:</strong>
+          {formatBytes(inputByteLength)} exceeds the {formatBytes(INPUT_SIZE_LIMIT_BYTES)} limit.
+        </div>
+        <div class="warning-item">
+          For larger inputs, use the rexpipe CLI:
+          <code>rexpipe --config pipeline.toml &lt; input.txt</code>.
+        </div>
+      </div>
+    </aside>
+  {/if}
 
   <section class="top-panes">
     <TextPane
@@ -152,7 +207,8 @@
    * warnings appear. */
   .app-layout {
     display: grid;
-    grid-template-rows: auto minmax(200px, 2fr) minmax(280px, 3fr) auto;
+    /* Header | size-limit (collapses to 0 when absent) | top panes | editor | warnings. */
+    grid-template-rows: auto auto minmax(200px, 2fr) minmax(280px, 3fr) auto;
     gap: 8px;
     padding: 8px;
     padding: max(8px, env(safe-area-inset-top))
@@ -168,6 +224,25 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     min-height: 0;
+  }
+
+  .size-limit {
+    display: flex;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(224, 120, 120, 0.1);
+    border: 1px solid var(--error);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--error);
+  }
+
+  .size-limit code {
+    background: var(--bg-editor);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 11px;
   }
 
   .warnings {
