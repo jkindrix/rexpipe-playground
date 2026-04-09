@@ -169,12 +169,6 @@ export interface ValidatePatternResponse {
   engine: string | null;
 }
 
-/** One entry from list_builtins. */
-export interface BuiltinPatternEntry {
-  name: string;
-  pattern: string;
-}
-
 /** Response from get_schema — enum values for UI dropdowns. */
 export interface SchemaResponse {
   step_types: StepType[];

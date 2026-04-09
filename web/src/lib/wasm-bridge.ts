@@ -6,9 +6,9 @@
 //    keystroke and only the latest result matters. A 100ms debounce prevents
 //    runaway worker traffic.
 //
-// 2. One-shot promise: validatePattern(), getSchema(), listBuiltins() return
-//    promises that resolve when the worker sends back a response with the
-//    matching request ID.
+// 2. One-shot promise: validatePattern() and getSchema() return promises
+//    that resolve when the worker sends back a response with the matching
+//    request ID.
 //
 // 3. Lifecycle event: onReady fires once when the worker signals that the
 //    WASM module has finished loading.
@@ -17,7 +17,6 @@ import type {
   ProcessRequest,
   ProcessOutcome,
   ValidatePatternResponse,
-  BuiltinPatternEntry,
   SchemaResponse,
   PipelineConfig,
 } from './types';
@@ -28,8 +27,7 @@ type WorkerResponse =
   | { type: 'load-error'; message: string }
   | { type: 'process-result'; id: number; payload: ProcessOutcome }
   | { type: 'validate-result'; id: number; payload: ValidatePatternResponse }
-  | { type: 'schema-result'; id: number; payload: SchemaResponse }
-  | { type: 'builtins-result'; id: number; payload: BuiltinPatternEntry[] };
+  | { type: 'schema-result'; id: number; payload: SchemaResponse };
 
 export class WasmBridge {
   private worker: Worker;
@@ -76,8 +74,7 @@ export class WasmBridge {
         this.onResult?.(message.payload);
         return;
       case 'validate-result':
-      case 'schema-result':
-      case 'builtins-result': {
+      case 'schema-result': {
         const resolve = this.pending.get(message.id);
         if (resolve) {
           this.pending.delete(message.id);
@@ -91,8 +88,16 @@ export class WasmBridge {
   /**
    * Run a pipeline, debounced. Only the latest call in a 100ms window
    * actually dispatches to the worker. Result delivered via onResult.
+   *
+   * `onProcessingStart` fires *immediately* on every call, not inside
+   * the debounce timer. That way rapid edits still flip the UI into
+   * a busy state on the first keystroke, even though the worker
+   * dispatch gets debounced. Without this, pipelines that process in
+   * under 100 ms would never show a busy indicator at all.
    */
   processPipeline(input: string, config: PipelineConfig, debounceMs = 100): void {
+    this.onProcessingStart?.();
+
     if (this.debounceTimer !== null) {
       clearTimeout(this.debounceTimer);
     }
@@ -100,7 +105,6 @@ export class WasmBridge {
     this.debounceTimer = window.setTimeout(() => {
       this.debounceTimer = null;
       const request: ProcessRequest = { input, config };
-      this.onProcessingStart?.();
       this.worker.postMessage({
         type: 'process',
         id: this.nextId++,
@@ -138,11 +142,6 @@ export class WasmBridge {
   /** Get the enum schema for UI dropdowns. */
   getSchema(): Promise<SchemaResponse> {
     return this.sendOneShot<SchemaResponse>({ type: 'schema' });
-  }
-
-  /** List the built-in regex patterns. */
-  listBuiltins(): Promise<BuiltinPatternEntry[]> {
-    return this.sendOneShot<BuiltinPatternEntry[]>({ type: 'builtins' });
   }
 
   private sendOneShot<T>(message: { type: string; payload?: unknown }): Promise<T> {
