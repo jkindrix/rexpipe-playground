@@ -86,16 +86,20 @@ rexpipe-playground/
 
 **WASM bridge.** The `rexpipe-wasm` crate depends on [rexpipe](https://github.com/jkindrix/rexpipe)
 as a Rust library with `default-features = false, features = ["core"]`.
-The `core` feature (added in rexpipe 2.1.0) is a WASM-safe entry point
-that excludes filesystem, terminal, and subprocess-dependent code. The
-bridge exposes four functions:
+The `core` feature (added on rexpipe `main`, planned for the 2.1.0
+release) is a WASM-safe entry point that excludes filesystem, terminal,
+and subprocess-dependent code. The bridge exposes three functions used
+by the frontend plus `list_builtins()`, which is available on the WASM
+module for the smoke test but not currently wired through the worker:
 
 - `process_pipeline(request_json)` — run a pipeline and return per-step
   intermediate results
-- `validate_pattern(pattern, flags_json)` — compile a single pattern and
-  report whether it's valid
-- `list_builtins()` — return the built-in regex pattern catalog
+- `validate_pattern(pattern, flags_json)` — compile a single pattern,
+  report whether it's valid, and which engine (standard vs PCRE) was
+  selected
 - `get_schema()` — return enum values for UI dropdowns
+- `list_builtins()` — return the built-in regex pattern catalog (not
+  currently surfaced in the playground UI)
 
 All return values are plain JavaScript objects (not `Map` instances) for
 idiomatic property access on the JS side.
@@ -125,10 +129,10 @@ bridge crate, Svelte frontend) and the four sprints of Phase 2.
 
 ## Building locally
 
-Prerequisites: Rust (1.85+), wasm-pack, Node.js (22+ recommended for
-Vite 8, or 20.x for Vite 6), and a local checkout of
-[rexpipe](https://github.com/jkindrix/rexpipe) at `../rexpipe` (the
-bridge crate uses a path dependency during development).
+Prerequisites: Rust (1.85+), wasm-pack, Node.js 20.19+ (Vite 6), and a
+local checkout of [rexpipe](https://github.com/jkindrix/rexpipe) at
+`../rexpipe` (the bridge crate uses a path dependency during
+development).
 
 ```bash
 # From the repository root:
@@ -153,9 +157,11 @@ npm run build
 npm run preview  # serve the dist/ output locally
 ```
 
-The smoke test from Phase 1 is still accessible at `/smoke-test.html`
-for quick regression comparison — it runs the same pipeline through the
-bridge without the Svelte layer.
+The Phase 1 smoke test lives at `web/public/smoke-test.html` and is
+available at `/smoke-test.html` during `npm run dev` for quick
+regression checks — it runs the same pipeline through the bridge
+without the Svelte layer. It's stripped from the production bundle
+(see `vite.config.ts`) so the deployed site only ships the real app.
 
 ## Testing
 
@@ -194,7 +200,7 @@ The playground deploys automatically to GitHub Pages on every push to
    production bundle
 5. Uploads `web/dist/` as a GitHub Pages artifact and deploys it
 
-The deployed URL is https://jkindrix/github.io/rexpipe-playground/ (served
+The deployed URL is https://jkindrix.github.io/rexpipe-playground/ (served
 from the `/rexpipe-playground/` subpath — the Vite config sets `base`
 accordingly for production builds, and the WASM worker computes paths
 from `import.meta.env.BASE_URL`).
