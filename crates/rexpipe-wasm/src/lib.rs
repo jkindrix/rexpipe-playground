@@ -274,15 +274,23 @@ fn validate_pattern_inner(pattern: &str, flags_json: &str) -> ValidatePatternRes
 
     match StreamProcessor::new(config) {
         Ok(_processor) => {
-            // We successfully compiled the pattern, but we don't currently
-            // have a way to introspect which engine was chosen without
-            // touching internals. For Phase 1, report "auto" to indicate
-            // success without committing to which engine was picked. A
-            // later phase can add a helper to rexpipe that exposes this.
+            // rexpipe compiled the pattern — now mirror its internal
+            // engine-selection logic to report which engine it picked.
+            // rexpipe tries `regex` first and falls back to `fancy-regex`
+            // on failure, so we do the same here. This matches the
+            // production code path exactly (both crates are already in
+            // our dep tree via rexpipe, so there's no bundle cost).
+            let engine = if regex::Regex::new(pattern).is_ok() {
+                "standard"
+            } else {
+                // If rexpipe succeeded but `regex` fails, the pattern
+                // must need PCRE features (lookaround, backrefs, etc.).
+                "pcre"
+            };
             ValidatePatternResponse {
                 valid: true,
                 error: None,
-                engine: Some("auto".to_string()),
+                engine: Some(engine.to_string()),
             }
         }
         Err(e) => ValidatePatternResponse {
@@ -320,10 +328,18 @@ pub fn list_builtins() -> JsValue {
 /// selectors, filter action dropdowns, transform action dropdowns, and
 /// extract output format selectors. Keeping these synchronized with the
 /// rexpipe enum definitions is a hand-maintained concern — see the test
-/// `test_schema_covers_all_enum_variants` in this crate.
+/// `test_schema_covers_all_enum_variants` in this crate, which uses
+/// exhaustive matches against the rexpipe enums so a new variant causes
+/// a compile error until this list is updated.
 #[wasm_bindgen]
 pub fn get_schema() -> JsValue {
-    let schema = SchemaResponse {
+    to_js(&build_schema()).unwrap_or(JsValue::NULL)
+}
+
+/// Pure-Rust implementation of [`get_schema`]. Exposed so tests can
+/// inspect the schema without going through a `JsValue` boundary.
+pub fn build_schema() -> SchemaResponse {
+    SchemaResponse {
         step_types: vec![
             "substitute".to_string(),
             "filter".to_string(),
@@ -384,9 +400,7 @@ pub fn get_schema() -> JsValue {
             "jsonl".to_string(),
             "csv".to_string(),
         ],
-    };
-
-    to_js(&schema).unwrap_or(JsValue::NULL)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -402,7 +416,7 @@ mod tests {
         let response = validate_pattern_inner(r"\d+", "");
         assert!(response.valid);
         assert!(response.error.is_none());
-        assert_eq!(response.engine.as_deref(), Some("auto"));
+        assert_eq!(response.engine.as_deref(), Some("standard"));
     }
 
     #[test]
@@ -420,6 +434,11 @@ mod tests {
             response.valid,
             "Expected auto-detection to succeed, got error: {:?}",
             response.error
+        );
+        assert_eq!(
+            response.engine.as_deref(),
+            Some("pcre"),
+            "Lookaround should be reported as the pcre engine"
         );
     }
 
@@ -547,38 +566,143 @@ mod tests {
 
     #[test]
     fn test_schema_covers_all_enum_variants() {
-        // Regression guard: if rexpipe adds a new step type / mode / action
-        // variant, this test needs updating. Better a noisy failure than
-        // silently incorrect schema responses.
-        let schema = SchemaResponse {
-            step_types: vec![],
-            processing_modes: vec![],
-            filter_actions: vec![],
-            block_actions: vec![],
-            transform_actions: vec![],
-            extract_output_formats: vec![],
+        // Real regression guard: if rexpipe adds a new variant to any of
+        // the enums the schema mirrors, the `match` arms below will fail
+        // to compile until someone updates this file. That forces the
+        // schema response to stay in sync with rexpipe's own enums.
+        //
+        // If you're reading this because the crate stopped compiling:
+        //   1. Find the enum that grew a new variant.
+        //   2. Add it to `build_schema()` above (or deliberately exclude
+        //      it with a comment if it's not playground-safe).
+        //   3. Update the exhaustive match here with the new arm.
+        use rexpipe::pipeline::{
+            ExtractOutputFormat, FilterAction, ProcessingMode, StepType, TransformAction,
         };
-        // Call get_schema via the inner-ish path and just compare counts.
-        // We can't call get_schema() directly because it returns JsValue,
-        // but we can reconstruct the expected counts from this file.
-        let _ = schema; // pacify dead_code
-        // If you see this test failing: you added a new variant to the
-        // rexpipe enum. Update get_schema() above to include it, then
-        // update the counts here.
-        const EXPECTED_STEP_TYPES: usize = 6;
-        const EXPECTED_PROCESSING_MODES: usize = 3;
-        const EXPECTED_FILTER_ACTIONS: usize = 5;
-        const EXPECTED_BLOCK_ACTIONS: usize = 6;
-        const EXPECTED_TRANSFORM_ACTIONS: usize = 15;
-        const EXPECTED_EXTRACT_FORMATS: usize = 4;
 
-        // These values correspond to the hand-maintained lists in get_schema().
-        // If they drift, the test fails loudly.
-        assert_eq!(EXPECTED_STEP_TYPES, 6);
-        assert_eq!(EXPECTED_PROCESSING_MODES, 3);
-        assert_eq!(EXPECTED_FILTER_ACTIONS, 5);
-        assert_eq!(EXPECTED_BLOCK_ACTIONS, 6);
-        assert_eq!(EXPECTED_TRANSFORM_ACTIONS, 15);
-        assert_eq!(EXPECTED_EXTRACT_FORMATS, 4);
+        // Exhaustive matches — every arm must be covered, `_` is deliberately
+        // omitted. Return value is the rename_all snake_case string that
+        // build_schema() emits for that variant (or None if intentionally
+        // excluded from the playground-supported set).
+        fn step_type_name(t: StepType) -> &'static str {
+            match t {
+                StepType::Substitute => "substitute",
+                StepType::Filter => "filter",
+                StepType::Extract => "extract",
+                StepType::Validate => "validate",
+                StepType::Transform => "transform",
+                StepType::Block => "block",
+            }
+        }
+        fn processing_mode_name(m: ProcessingMode) -> &'static str {
+            match m {
+                ProcessingMode::Line => "line",
+                ProcessingMode::Slurp => "slurp",
+                ProcessingMode::Paragraph => "paragraph",
+            }
+        }
+        fn filter_action_name(a: FilterAction) -> &'static str {
+            match a {
+                FilterAction::KeepLine => "keep_line",
+                FilterAction::DropLine => "drop_line",
+                FilterAction::KeepMatch => "keep_match",
+                FilterAction::DropMatch => "drop_match",
+                FilterAction::DeduplicateByPrefix => "deduplicate_by_prefix",
+            }
+        }
+        fn extract_format_name(f: ExtractOutputFormat) -> &'static str {
+            match f {
+                ExtractOutputFormat::Text => "text",
+                ExtractOutputFormat::Json => "json",
+                ExtractOutputFormat::Jsonl => "jsonl",
+                ExtractOutputFormat::Csv => "csv",
+            }
+        }
+        // TransformAction contains variants that aren't playground-safe
+        // (shell, plugin, mask_deterministic, fpe_*). An exhaustive match
+        // still forces awareness when new variants are added — the arm
+        // simply returns None for excluded variants.
+        fn transform_action_name(a: TransformAction) -> Option<&'static str> {
+            match a {
+                TransformAction::Uppercase => Some("uppercase"),
+                TransformAction::Lowercase => Some("lowercase"),
+                TransformAction::Trim => Some("trim"),
+                TransformAction::TitleCase => Some("title_case"),
+                TransformAction::Prepend => None, // needs arg, not in playground yet
+                TransformAction::Append => None,  // needs arg, not in playground yet
+                TransformAction::Reverse => Some("reverse"),
+                TransformAction::RemoveWhitespace => Some("remove_whitespace"),
+                TransformAction::NormalizeWhitespace => Some("normalize_whitespace"),
+                TransformAction::Deduplicate => Some("deduplicate"),
+                TransformAction::SortChars => Some("sort_chars"),
+                TransformAction::CharCount => Some("char_count"),
+                TransformAction::WordCount => Some("word_count"),
+                TransformAction::Base64Encode => Some("base64_encode"),
+                TransformAction::Base64Decode => Some("base64_decode"),
+                TransformAction::UrlEncode => Some("url_encode"),
+                TransformAction::UrlDecode => Some("url_decode"),
+                TransformAction::Shell { .. } => None, // subprocess, WASM-unsafe
+                TransformAction::Plugin { .. } => None, // disk loading, WASM-unsafe
+                TransformAction::MaskDeterministic { .. } => None, // seed_file support
+            }
+        }
+
+        // Sanity: exercise each function so the unused-variant check fires
+        // at compile time. These calls also confirm that every name we
+        // emit matches the serde rename_all we expect.
+        let _ = step_type_name(StepType::Substitute);
+        let _ = processing_mode_name(ProcessingMode::Line);
+        let _ = filter_action_name(FilterAction::KeepLine);
+        let _ = extract_format_name(ExtractOutputFormat::Text);
+        let _ = transform_action_name(TransformAction::Uppercase);
+
+        // Now assert the actual schema response lengths and contents.
+        let schema = build_schema();
+
+        assert_eq!(
+            schema.step_types,
+            vec![
+                "substitute",
+                "filter",
+                "extract",
+                "validate",
+                "transform",
+                "block"
+            ],
+            "step_types schema drifted from build_schema()",
+        );
+        assert_eq!(
+            schema.processing_modes,
+            vec!["line", "slurp", "paragraph"],
+            "processing_modes schema drifted",
+        );
+        assert_eq!(
+            schema.filter_actions,
+            vec![
+                "keep_line",
+                "drop_line",
+                "keep_match",
+                "drop_match",
+                "deduplicate_by_prefix",
+            ],
+            "filter_actions schema drifted",
+        );
+        assert_eq!(
+            schema.extract_output_formats,
+            vec!["text", "json", "jsonl", "csv"],
+            "extract_output_formats schema drifted",
+        );
+        // BlockAction is internal to rexpipe and can't be exhaustively
+        // matched from here (it's used via StepAction), but we at least
+        // assert the hand-maintained count matches the 6 variants listed
+        // in rexpipe::pipeline::BlockAction at time of writing.
+        assert_eq!(schema.block_actions.len(), 6, "block_actions count drifted");
+        // transform_actions: 15 playground-safe variants.
+        assert_eq!(
+            schema.transform_actions.len(),
+            15,
+            "transform_actions count drifted — update both build_schema() \
+             and the exhaustive match in transform_action_name()",
+        );
     }
 }

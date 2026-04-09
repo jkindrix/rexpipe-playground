@@ -188,6 +188,8 @@ name = "rexpipe-wasm"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
+ "fancy-regex",
+ "regex",
  "rexpipe",
  "serde",
  "serde-wasm-bindgen",

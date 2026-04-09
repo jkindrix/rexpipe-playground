@@ -8,7 +8,9 @@
  * selectors, filter action dropdowns, transform action dropdowns, and
  * extract output format selectors. Keeping these synchronized with the
  * rexpipe enum definitions is a hand-maintained concern — see the test
- * `test_schema_covers_all_enum_variants` in this crate.
+ * `test_schema_covers_all_enum_variants` in this crate, which uses
+ * exhaustive matches against the rexpipe enums so a new variant causes
+ * a compile error until this list is updated.
  */
 export function get_schema(): any;
 
