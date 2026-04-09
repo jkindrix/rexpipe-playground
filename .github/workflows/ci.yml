@@ -9,6 +9,11 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # Force JavaScript-based actions onto Node 24 even when their action.yml
+  # still pins Node 20. Mirrors the same setting in deploy-pages.yml so
+  # transitive deprecation warnings (e.g. actions/download-artifact@v6's
+  # Node 20 pin) don't pollute the CI log.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   # Build the rexpipe-wasm bridge crate and run its tests.
