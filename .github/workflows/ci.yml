@@ -167,15 +167,12 @@ jobs:
       - name: Run cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
+          # deny.toml lives next to the bridge crate's Cargo.toml so
+          # cargo-deny discovers it automatically via its upward config
+          # search — no explicit --config argument required.
           manifest-path: rexpipe-playground/crates/rexpipe-wasm/Cargo.toml
-          # Config lives at rexpipe-playground/deny.toml (the playground
-          # repo root). `arguments` are positioned BEFORE the subcommand,
-          # so --all-features (a global flag) goes there. `command-arguments`
-          # are positioned AFTER the subcommand, which is where --config
-          # needs to go for cargo-deny's `check` subcommand.
           arguments: --all-features
           command: check
-          command-arguments: --config ../../deny.toml
 
   # Clippy lint on the bridge crate.
   clippy:
