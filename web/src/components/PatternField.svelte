@@ -5,7 +5,7 @@
   import { patternFieldExtensions } from '../lib/codemirror-setup';
   import { bridge } from '../lib/wasm-bridge';
   import { state as pipelineState } from '../lib/pipeline-state.svelte';
-  import type { ValidatePatternResponse } from '../lib/types';
+  import type { RegexFlag, ValidatePatternResponse } from '../lib/types';
 
   interface Props {
     value: string;
@@ -17,6 +17,16 @@
      * Default: true.
      */
     validate?: boolean;
+    /**
+     * Regex flags that should be applied when compiling the pattern for
+     * validation. Passing the step's current flags here means the
+     * pass/fail indicator reflects the actual compile that will happen
+     * at pipeline run time, not a flagless compile that would miss
+     * flag-specific errors like `(?x)` extended syntax validation.
+     *
+     * Optional — defaults to no flags. Omit for non-pattern fields.
+     */
+    flags?: RegexFlag[];
   }
 
   let {
@@ -24,6 +34,7 @@
     placeholder = 'regex pattern',
     onchange,
     validate = true,
+    flags = [],
   }: Props = $props();
 
   let editorEl: HTMLDivElement;
@@ -46,10 +57,14 @@
       validation = null;
       return;
     }
+    // Capture flags at scheduling time so a flag toggle mid-timer
+    // doesn't cause the stale request to appear newer than the
+    // replacement. The setTimeout closure uses the captured value.
+    const flagsSnapshot = flags.slice();
     validationTimer = window.setTimeout(() => {
       validationTimer = null;
       bridge
-        .validatePattern(pattern)
+        .validatePattern(pattern, flagsSnapshot)
         .then((result) => {
           validation = result;
         })
@@ -113,6 +128,23 @@
     }
   });
 
+  // Re-validate when the flags prop changes. Reading `flags.length` and
+  // `flags.join(',')` inside the effect registers the flag array as a
+  // dependency, so adding/removing a flag re-runs validation against
+  // the new flag set. Without this, the status indicator would
+  // continue to reflect the previous compile until the user next edits
+  // the pattern text — misleading for flag-specific errors.
+  $effect(() => {
+    // Tracked reads so Svelte notices both length and content changes.
+    const _len = flags.length;
+    const _joined = flags.join(',');
+    void _len;
+    void _joined;
+    if (!pipelineState.wasmReady) return;
+    if (value.length === 0) return;
+    scheduleValidation(value);
+  });
+
   onDestroy(() => {
     if (validationTimer !== null) {
       clearTimeout(validationTimer);
@@ -135,10 +167,30 @@
   const statusTitle = $derived.by(() => {
     if (validation === null) return '';
     if (validation.valid) {
-      return `Pattern compiles (engine: ${validation.engine ?? 'auto'})`;
+      // Compact single-letter rep mirrors PCRE/Perl notation: (?ims)
+      // so the tooltip reads "Pattern compiles with flags: (?ims) | engine: pcre"
+      // rather than an ugly snake_case dump.
+      const letters = flagLettersFromList(flags);
+      const flagStr = letters.length > 0 ? ` with flags: (?${letters})` : '';
+      return `Pattern compiles${flagStr} | engine: ${validation.engine ?? 'unknown'}`;
     }
     return validation.error ?? 'Invalid pattern';
   });
+
+  // Map the subset of RegexFlag we expose in the UI to their PCRE/Perl
+  // single-letter form. Unknown flags are silently skipped — they're
+  // still passed through to the bridge, just not rendered in the
+  // tooltip shorthand.
+  function flagLettersFromList(list: RegexFlag[]): string {
+    const letters: string[] = [];
+    for (const f of list) {
+      if (f === 'case_insensitive') letters.push('i');
+      else if (f === 'multiline') letters.push('m');
+      else if (f === 'dot_all') letters.push('s');
+      else if (f === 'extended') letters.push('x');
+    }
+    return letters.join('');
+  }
 </script>
 
 <div class="pattern-field">

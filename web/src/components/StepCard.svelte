@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { StepConfig, StepIntermediateResult } from '../lib/types';
+  import type { RegexFlag, StepConfig, StepIntermediateResult } from '../lib/types';
   import {
     removeStep,
     moveStep,
@@ -122,6 +122,82 @@
     e.stopPropagation();
     removeStep(index);
   }
+
+  // -----------------------------------------------------------------
+  // Regex flag toggles
+  // -----------------------------------------------------------------
+  //
+  // Which flags to expose? rexpipe::pipeline::RegexFlag has seven
+  // variants but not all of them make sense as user-facing toggles:
+  //
+  //   - case_insensitive / multiline / dot_all / extended (x): YES —
+  //     these are the standard PCRE/Perl flags, universally useful,
+  //     and match regex101's mental model.
+  //
+  //   - global: NO — substitute-only, and rexpipe already replaces
+  //     all matches by default. Exposing this toggle creates more
+  //     confusion than it solves; users who need "replace first only"
+  //     can edit the pattern directly.
+  //
+  //   - unicode: NO — enabled by default in the Rust regex engine.
+  //     Toggling it off to disable unicode support would be surprising
+  //     and hardly anyone actually wants it off.
+  //
+  //   - pcre: NO — rexpipe auto-detects lookaround/backrefs and
+  //     transparently switches to the PCRE engine. Exposing the
+  //     toggle just second-guesses the detection.
+  //
+  // If a user imports a pipeline that uses `global`/`unicode`/`pcre`,
+  // those flags are preserved in step.flags through round-trip; we
+  // just don't surface a toggle for them.
+  const UI_FLAGS: {
+    flag: RegexFlag;
+    letter: string;
+    label: string;
+    description: string;
+  }[] = [
+    {
+      flag: 'case_insensitive',
+      letter: 'i',
+      label: 'i',
+      description: 'Case-insensitive: matches letters regardless of case',
+    },
+    {
+      flag: 'multiline',
+      letter: 'm',
+      label: 'm',
+      description:
+        'Multi-line: ^ and $ match at every line boundary, not just the start and end of input',
+    },
+    {
+      flag: 'dot_all',
+      letter: 's',
+      label: 's',
+      description:
+        'Single-line / dot-all: `.` matches newlines too, not just non-newline characters',
+    },
+    {
+      flag: 'extended',
+      letter: 'x',
+      label: 'x',
+      description:
+        'Extended: allow whitespace and `#` comments inside the pattern for readability',
+    },
+  ];
+
+  function isFlagSet(flag: RegexFlag): boolean {
+    return (step.flags ?? []).includes(flag);
+  }
+
+  function toggleFlag(flag: RegexFlag) {
+    const current = step.flags ?? [];
+    if (current.includes(flag)) {
+      const next = current.filter((f) => f !== flag);
+      step.flags = next.length > 0 ? next : undefined;
+    } else {
+      step.flags = [...current, flag];
+    }
+  }
 </script>
 
 <div class="step-card" class:selected={isSelected} class:error={hasError} class:disabled={isDisabled}>
@@ -221,7 +297,28 @@
         value={step.pattern}
         placeholder="regex pattern"
         onchange={onPatternChange}
+        flags={step.flags ?? []}
       />
+    </div>
+
+    <div class="field-full">
+      <span class="label-text">Flags</span>
+      <div class="flag-chips" role="group" aria-label="Regex flags">
+        {#each UI_FLAGS as { flag, letter, label, description } (flag)}
+          <button
+            type="button"
+            class="flag-chip"
+            class:active={isFlagSet(flag)}
+            onclick={(e) => {
+              e.stopPropagation();
+              toggleFlag(flag);
+            }}
+            title={description}
+            aria-pressed={isFlagSet(flag)}
+            aria-label={`${description} (${letter})`}
+          >{label}</button>
+        {/each}
+      </div>
     </div>
 
     {#if step.type === 'substitute'}
@@ -474,6 +571,66 @@
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  /* Flag chip row — toggleable buttons styled like editor chrome.
+   * Inactive chips look like outlined pills; active chips get the
+   * accent color and inverted foreground so they read like a
+   * pressed button. Matches regex101's visual grammar for flags. */
+  .flag-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .flag-chip {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    min-width: 30px;
+    min-height: 28px;
+    background: var(--bg-editor);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .flag-chip:hover {
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+  }
+
+  .flag-chip:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 1px;
+  }
+
+  .flag-chip.active {
+    background: var(--accent-blue);
+    color: var(--bg-primary);
+    border-color: var(--accent-blue);
+  }
+
+  .flag-chip.active:hover {
+    /* Slightly lighten the accent on hover for visual feedback. */
+    filter: brightness(1.15);
+  }
+
+  /* Mobile: match the WCAG 2.5.5 44x44 min touch target used elsewhere. */
+  @media (max-width: 767px) {
+    .flag-chip {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0 14px;
+      font-size: 14px;
+    }
+    .flag-chips {
+      gap: 8px;
+    }
   }
 
   .step-error {

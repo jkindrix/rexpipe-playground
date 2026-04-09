@@ -70,14 +70,18 @@ export type TransformAction =
 
 export type ExtractOutputFormat = 'text' | 'json' | 'jsonl' | 'csv';
 
+// Mirrors rexpipe::pipeline::RegexFlag (serde rename_all = "snake_case").
+// Keep this list in sync with rexpipe's enum — a drift will cause
+// serde-json deserialization errors on the Rust side, not compile
+// errors on the TS side.
 export type RegexFlag =
+  | 'global'
   | 'case_insensitive'
   | 'multiline'
   | 'dot_all'
-  | 'global'
+  | 'unicode'
   | 'extended'
-  | 'pcre'
-  | 'ignore_whitespace';
+  | 'pcre';
 
 /** A rexpipe pipeline config. Matches PipelineConfig on the Rust side. */
 export interface PipelineConfig {
