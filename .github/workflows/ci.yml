@@ -242,6 +242,23 @@ jobs:
         working-directory: rexpipe-playground/web
         run: npm run test:unit:run
 
+      # Build the production bundle as a separate step rather than
+      # chaining it inside Playwright's webServer command. This way
+      # build failures show up in the CI log as a clear "Build
+      # production bundle" failure instead of a vague "webServer
+      # timed out" further down. It also lets us inspect dist/ before
+      # the tests run.
+      - name: Build production bundle
+        working-directory: rexpipe-playground/web
+        run: npm run build
+
+      - name: Sanity-check dist contents
+        working-directory: rexpipe-playground/web
+        run: |
+          ls -la dist/
+          ls -la dist/pkg/ || echo "WARNING: dist/pkg not found"
+          ls -la dist/assets/ || echo "WARNING: dist/assets not found"
+
       - name: Run Playwright smoke tests
         working-directory: rexpipe-playground/web
         env:

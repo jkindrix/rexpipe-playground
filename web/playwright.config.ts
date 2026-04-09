@@ -68,23 +68,28 @@ export default defineConfig({
     },
   ],
 
-  // Auto-build and serve the production bundle for the duration of the
-  // test run. `vite preview` respects the `--base` flag so the dist/
-  // output is served at the same subpath the production site uses.
-  // Outside CI, reuse an existing server so rerunning tests during
-  // iteration doesn't pay the build cost every time — run
-  // `npx vite preview --port 5173 --strictPort --base=/rexpipe-playground/`
-  // in a separate terminal.
+  // Serve the production bundle for the duration of the test run.
+  // `vite preview` respects the `--base` flag so the dist/ output is
+  // served at the same subpath the production site uses.
+  //
+  // This command does NOT run `npm run build` — the build is the
+  // caller's responsibility. In CI the workflow runs build as a
+  // separate step so a build failure produces a clear "Build
+  // production bundle" job error instead of a vague "webServer
+  // timed out" message later. Locally, run `npm run build` once
+  // before iterating, then `npx playwright test` reuses dist/ until
+  // you rebuild manually.
   webServer: {
-    command:
-      'npm run build && npx vite preview --port 5173 --strictPort --base=/rexpipe-playground/',
+    command: 'npx vite preview --port 5173 --strictPort --base=/rexpipe-playground/',
     // Playwright polls this URL until it returns 200, signalling the
     // preview server is up and the built assets are ready.
     url: 'http://127.0.0.1:5173/rexpipe-playground/',
     ignoreHTTPSErrors: true,
     reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-    stdout: 'ignore',
+    timeout: 60_000,
+    // Pipe both streams so vite preview errors are visible in the
+    // Playwright log instead of silently swallowed.
+    stdout: 'pipe',
     stderr: 'pipe',
   },
 });
