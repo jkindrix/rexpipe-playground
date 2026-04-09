@@ -385,6 +385,11 @@
     border-radius: 4px;
     overflow: hidden;
     transition: border-color 0.15s, background 0.15s;
+    /* Prevent flex from compressing cards when the step-list overflows.
+     * Without this, the browser shrinks every card to fit the container
+     * rather than letting .step-list scroll — so adding many steps
+     * makes each card progressively unusable. */
+    flex-shrink: 0;
   }
 
   .step-card:hover {
