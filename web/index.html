@@ -2,6 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Content-Security-Policy: matches the project's "no server, no uploads"
+      ethos. Everything is self-hosted, no third-party CDNs, no inline eval
+      except what WASM bindings require (`wasm-unsafe-eval`). The worker
+      loads from the same origin; `blob:` is needed for Vite's worker
+      emit in some build configurations. If you add a third-party service
+      or analytics later, update this list explicitly rather than
+      weakening it to `*`.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>rexpipe playground</title>
