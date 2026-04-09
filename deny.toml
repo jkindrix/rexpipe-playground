@@ -1,0 +1,98 @@
+# cargo-deny configuration for rexpipe-playground's bridge crate.
+# https://embarkstudios.github.io/cargo-deny/
+#
+# Run locally: cargo deny --manifest-path crates/rexpipe-wasm/Cargo.toml check
+# CI runs the same check via .github/workflows/ci.yml.
+
+[graph]
+# Target platforms the bridge crate has to build for:
+# - wasm32-unknown-unknown is the real production target.
+# - The native linux/mac/windows targets are what `cargo test` exercises
+#   locally and on CI runners, so dependencies have to resolve cleanly
+#   on them too.
+targets = [
+    "wasm32-unknown-unknown",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+all-features = true
+
+# =============================================================================
+# Advisories
+# =============================================================================
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# Fail on unmaintained crates that are in the workspace, but don't fail
+# on unmaintained transitive deps we can't control directly.
+unmaintained = "workspace"
+ignore = []
+
+# =============================================================================
+# Licenses
+# =============================================================================
+[licenses]
+confidence-threshold = 0.93
+# Allowed licenses — kept in sync with rexpipe's deny.toml. Extend here
+# if a new dep introduces a permissive license that isn't on the list.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "ISC",
+    "CC0-1.0",
+    "Unlicense",
+    "Zlib",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+]
+
+[licenses.private]
+ignore = true
+
+[[licenses.clarify]]
+name = "unicode-ident"
+expression = "(MIT OR Apache-2.0) AND Unicode-DFS-2016"
+license-files = [{ path = "LICENSE-UNICODE", hash = 0x3fb01745 }]
+
+# =============================================================================
+# Bans
+# =============================================================================
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# The bridge crate uses a path dependency on a sibling rexpipe checkout
+# during development (see Cargo.toml). That's a wildcard in cargo-deny's
+# eyes, but it's a deliberate dev-time arrangement and not the kind of
+# unbounded version range we want to forbid. Real transitive wildcards
+# are still denied by the `wildcards = "deny"` setting above.
+allow-wildcard-paths = true
+highlight = "all"
+
+# We don't ship OpenSSL or other native-TLS crates through the WASM
+# bridge; if something pulls them in, something's gone wrong.
+deny = [
+    { crate = "openssl", use-instead = "rustls" },
+    { crate = "openssl-sys", use-instead = "rustls" },
+]
+
+skip = []
+
+# =============================================================================
+# Sources
+# =============================================================================
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# The bridge depends on rexpipe via a path dependency during development
+# and may switch to a git or crates.io dep later. If you add a git dep,
+# list its URL here.
+allow-git = []

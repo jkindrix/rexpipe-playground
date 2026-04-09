@@ -144,6 +144,37 @@ jobs:
         working-directory: crates/rexpipe-wasm
         run: cargo fmt --all -- --check
 
+  # Supply-chain check: licenses, advisories, banned crates, source registries.
+  # Runs against the bridge crate's full dependency graph (which transitively
+  # includes rexpipe + its core deps). Config lives at deny.toml in the
+  # repo root.
+  cargo-deny:
+    name: cargo-deny (supply chain)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out rexpipe-playground
+        uses: actions/checkout@v6
+        with:
+          path: rexpipe-playground
+
+      - name: Check out rexpipe (main — contains Phase 0 core/cli split)
+        uses: actions/checkout@v6
+        with:
+          repository: jkindrix/rexpipe
+          ref: main
+          path: rexpipe
+
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: rexpipe-playground/crates/rexpipe-wasm/Cargo.toml
+          # Config lives at rexpipe-playground/deny.toml (the playground
+          # repo root). Pass it explicitly since cargo-deny-action runs
+          # from the manifest directory and otherwise might not find
+          # the config via upward search.
+          arguments: --all-features --config ../../deny.toml
+          command: check
+
   # Clippy lint on the bridge crate.
   clippy:
     name: Clippy
