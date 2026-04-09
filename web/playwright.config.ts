@@ -80,7 +80,12 @@ export default defineConfig({
   // before iterating, then `npx playwright test` reuses dist/ until
   // you rebuild manually.
   webServer: {
-    command: 'npx vite preview --port 5173 --strictPort --base=/rexpipe-playground/',
+    // --host 127.0.0.1 forces vite preview onto IPv4. Without this,
+    // CI runners that default to IPv6 first (or that resolve `localhost`
+    // to `::1`) leave Playwright polling 127.0.0.1 forever while the
+    // server is happily listening on a different interface.
+    command:
+      'npx vite preview --port 5173 --strictPort --host 127.0.0.1 --base=/rexpipe-playground/',
     // Playwright polls this URL until it returns 200, signalling the
     // preview server is up and the built assets are ready.
     url: 'http://127.0.0.1:5173/rexpipe-playground/',
