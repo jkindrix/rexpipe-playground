@@ -169,11 +169,13 @@ jobs:
         with:
           manifest-path: rexpipe-playground/crates/rexpipe-wasm/Cargo.toml
           # Config lives at rexpipe-playground/deny.toml (the playground
-          # repo root). Pass it explicitly since cargo-deny-action runs
-          # from the manifest directory and otherwise might not find
-          # the config via upward search.
-          arguments: --all-features --config ../../deny.toml
+          # repo root). `arguments` are positioned BEFORE the subcommand,
+          # so --all-features (a global flag) goes there. `command-arguments`
+          # are positioned AFTER the subcommand, which is where --config
+          # needs to go for cargo-deny's `check` subcommand.
+          arguments: --all-features
           command: check
+          command-arguments: --config ../../deny.toml
 
   # Clippy lint on the bridge crate.
   clippy:
