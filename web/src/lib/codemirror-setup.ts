@@ -23,6 +23,7 @@ import {
   dropCursor,
   rectangularSelection,
   crosshairCursor,
+  placeholder as cmPlaceholder,
 } from '@codemirror/view';
 import { history, defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching } from '@codemirror/language';
@@ -83,6 +84,8 @@ interface SetupOptions {
   readonly?: boolean;
   /** Whether to show line numbers */
   lineNumbers?: boolean;
+  /** Placeholder text shown when the editor is empty */
+  placeholder?: string;
   /** Extra extensions to append (e.g., highlight field) */
   extraExtensions?: import('@codemirror/state').Extension[];
 }
@@ -112,8 +115,23 @@ export function textPaneExtensions(opts: SetupOptions = {}) {
     extensions.push(lineNumbers());
   }
 
+  if (opts.placeholder) {
+    extensions.push(cmPlaceholder(opts.placeholder));
+  }
+
   if (opts.readonly) {
     extensions.push(EditorState.readOnly.of(true));
+    // Dim the editor background so it's visually distinct from the
+    // editable state. Without this, users clicking a read-only pane
+    // (e.g. the input pane while a step is selected for inspection)
+    // have no affordance for why their keystrokes aren't working.
+    extensions.push(
+      EditorView.theme({
+        '&': {
+          opacity: '0.7',
+        },
+      }),
+    );
   }
 
   if (opts.extraExtensions) {

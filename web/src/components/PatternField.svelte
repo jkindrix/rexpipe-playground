@@ -197,7 +197,7 @@
   <div class="editor-wrap" class:invalid={validation && !validation.valid}>
     <div class="editor-host" bind:this={editorEl} data-placeholder={placeholder}></div>
     {#if validation !== null}
-      <span class="status {statusClass}" title={statusTitle} aria-label={statusTitle}>
+      <span class="status {statusClass}" role="img" title={statusTitle} aria-label={statusTitle}>
         {statusIcon}
       </span>
     {/if}

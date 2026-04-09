@@ -22,7 +22,7 @@
     <span class="subtitle">multi-step regex pipelines, live in your browser</span>
   </div>
   <div class="status">
-    <span class="dot {statusClass}" aria-hidden="true"></span>
+    <span class="dot {statusClass}" aria-hidden="true" title={statusText}></span>
     <span class="status-text">{statusText}</span>
   </div>
 </header>

@@ -127,6 +127,14 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Keyboard focus indicators — WCAG 2.4.7 requires visible focus for
+ * all interactive elements. The one-dark CodeMirror theme and inline
+ * Svelte styles handle their own focus; this covers everything else. */
+button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 1px;
+}
+
 button.primary {
   background: var(--accent-blue);
   border-color: var(--accent-blue);

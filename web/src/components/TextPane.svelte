@@ -51,6 +51,7 @@
         extensions: [
           ...textPaneExtensions({
             readonly,
+            placeholder: placeholder || undefined,
             extraExtensions: [highlightField],
           }),
           updateListener,
