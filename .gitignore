@@ -33,3 +33,13 @@ Thumbs.db
 web/node_modules/
 web/dist/
 web/.vite/
+
+# Playwright test output — HTML report, traces, screenshots, videos.
+# Generated on every test run and never committed.
+web/playwright-report/
+web/test-results/
+web/blob-report/
+web/playwright/.cache/
+
+# .tmp/ — deferred-work prompt files for future sessions. Local-only.
+.tmp/
